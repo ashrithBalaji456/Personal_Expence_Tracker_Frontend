@@ -52,8 +52,8 @@ export const Register = () => {
     setLoading(true);
     try {
       await register(username.trim(), email.trim(), password);
-      toast.success('Registration successful! Welcome to ExpenseFlow.');
-      navigate('/dashboard');
+      toast.success('Registration successful! Please sign in to continue.');
+      navigate('/login');
     } catch (err) {
       const message = err.response?.data?.message || err.response?.data || 'Failed to register account.';
       toast.error(message);

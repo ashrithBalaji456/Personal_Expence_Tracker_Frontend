@@ -44,11 +44,6 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     try {
       const data = await trackerApi.register(username, email, password);
-      // Auto login on registration
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('username', data.username);
-      setToken(data.token);
-      setUser({ username: data.username });
       return data;
     } catch (error) {
       throw error;

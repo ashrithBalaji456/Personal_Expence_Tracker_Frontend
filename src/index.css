@@ -1,0 +1,162 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .glass-card {
+    background: rgba(21, 28, 44, 0.65);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .glass-card-hover {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .glass-card-hover:hover {
+    background: rgba(30, 41, 64, 0.8);
+    border-color: rgba(139, 92, 246, 0.3);
+    box-shadow: 0 10px 30px -10px rgba(139, 92, 246, 0.15);
+    transform: translateY(-2px);
+  }
+
+  .glass-input {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(8px);
+    color: #F8FAFC;
+    color-scheme: dark;
+  }
+  .glass-input:focus {
+    outline: none;
+    border-color: #8B5CF6;
+    box-shadow: 0 0 15px rgba(139, 92, 246, 0.25);
+  }
+
+  /* Force dark color scheme on date inputs & popups */
+  input[type="date"] {
+    color-scheme: dark;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) brightness(1.2);
+    cursor: pointer;
+  }
+
+  .glass-modal {
+    background: rgba(15, 23, 42, 0.92);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  /* Premium tactile button styling */
+  .btn-premium {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    overflow: hidden;
+    user-select: none;
+  }
+  .btn-premium:hover {
+    transform: translateY(-1.5px) scale(1.025);
+  }
+  .btn-premium:active {
+    transform: translateY(1px) scale(0.965);
+    transition: all 0.05s ease;
+  }
+
+  .btn-cyan {
+    background: linear-gradient(135deg, #00F2FE 0%, #4FACFE 100%);
+    color: #0F172A;
+    box-shadow: 0 4px 15px rgba(0, 242, 254, 0.25);
+  }
+  .btn-cyan:hover {
+    box-shadow: 0 6px 20px rgba(0, 242, 254, 0.4);
+    filter: brightness(1.05);
+  }
+  .btn-cyan:active {
+    box-shadow: 0 2px 8px rgba(0, 242, 254, 0.15);
+  }
+
+  .btn-violet {
+    background: linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%);
+    color: #FFFFFF;
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.25);
+  }
+  .btn-violet:hover {
+    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+    filter: brightness(1.08);
+  }
+  .btn-violet:active {
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.15);
+  }
+
+  .btn-secondary {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #94A3B8;
+  }
+  .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(255, 255, 255, 0.18);
+    color: #F8FAFC;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  .btn-danger {
+    background: rgba(244, 63, 94, 0.08);
+    border: 1px solid rgba(244, 63, 94, 0.16);
+    color: #FDA4AF;
+  }
+  .btn-danger:hover {
+    background: rgba(244, 63, 94, 0.18);
+    border-color: rgba(244, 63, 94, 0.3);
+    color: #FFE4E6;
+    box-shadow: 0 4px 12px rgba(244, 63, 94, 0.15);
+  }
+}
+
+/* Custom animated gradient text */
+.gradient-text-cyan {
+  background: linear-gradient(135deg, #00F2FE 0%, #4FACFE 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gradient-text-gold {
+  background: linear-gradient(135deg, #F59E0B 0%, #FCD34D 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gradient-text-emerald {
+  background: linear-gradient(135deg, #10B981 0%, #34D399 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.4);
+}
+
+/* Style option elements inside select tags to match the dark theme */
+select.glass-input option {
+  background-color: #151C2C;
+  color: #F8FAFC;
+}

@@ -1,22 +1,84 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Plus, Check } from 'lucide-react';
+import { 
+  ArrowLeft, Plus, Check, Home, ShoppingCart, Lightbulb, Shield, 
+  TrendingUp, Coins, Heart, PiggyBank, Train, Wallet, HelpCircle 
+} from 'lucide-react';
 import trackerApi from '../api/trackerApi';
-import { CATEGORIES, CATEGORY_DETAILS } from '../utils/constants';
 import { formatInputDate } from '../utils/date';
+import { formatCurrency } from '../utils/currency';
 import toast from '../components/ui/Toast';
 import DatePicker from '../components/ui/DatePicker';
+
+const ICON_MAP = {
+  Home,
+  ShoppingCart,
+  Lightbulb,
+  Shield,
+  TrendingUp,
+  Coins,
+  Heart,
+  PiggyBank,
+  Train,
+  Wallet
+};
 
 export const AddExpense = () => {
   const navigate = useNavigate();
 
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('FOOD');
+  const [category, setCategory] = useState('');
+  const [categoriesList, setCategoriesList] = useState([]);
+  const [monthlyIncome, setMonthlyIncome] = useState(0);
   const [expenseDate, setExpenseDate] = useState(formatInputDate(new Date()));
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!expenseDate) return;
+    const parts = expenseDate.split('-');
+    if (parts.length < 2) return;
+    const targetMonth = `${parts[0]}-${parts[1]}`;
+
+    const fetchIncome = async () => {
+      try {
+        const res = await trackerApi.getMonthlyIncome(targetMonth);
+        setMonthlyIncome(res.amount || 0);
+      } catch (err) {
+        setMonthlyIncome(0);
+      }
+    };
+    fetchIncome();
+  }, [expenseDate]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const data = await trackerApi.getBudgetCategories();
+        setCategoriesList(data);
+        if (data.length > 0) {
+          setCategory(data[0].name);
+        }
+      } catch (err) {
+        setCategoriesList([
+          { name: 'Rent', color: '#EC4899' },
+          { name: 'Groceries', color: '#10B981' },
+          { name: 'Electricity + Wi-Fi', color: '#F59E0B' },
+          { name: 'Term Insurance', color: '#EF4444' },
+          { name: 'SIP Investment', color: '#8B5CF6' },
+          { name: 'Gold Saving', color: '#EAB308' },
+          { name: 'Parents Support', color: '#6366F1' },
+          { name: 'FD/Emergency', color: '#14B8A6' },
+          { name: 'Travel & Commute', color: '#3B82F6' },
+          { name: 'Other Expenses', color: '#64748B' }
+        ]);
+        setCategory('Rent');
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -119,33 +181,60 @@ export const AddExpense = () => {
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2.5">
               Category
             </label>
-            <div className="grid grid-cols-3 gap-3">
-              {CATEGORIES.map((cat) => {
-                const details = CATEGORY_DETAILS[cat];
-                const isSelected = category === cat;
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-48 overflow-y-auto pr-1">
+              {categoriesList.map((cat) => {
+                const isSelected = category === cat.name;
+                const IconComponent = ICON_MAP[cat.icon];
                 return (
                   <button
-                    key={cat}
+                    key={cat.id || cat.name}
                     type="button"
-                    onClick={() => setCategory(cat)}
+                    onClick={() => setCategory(cat.name)}
                     disabled={loading}
-                    className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all duration-300 relative ${
-                      isSelected
-                        ? `${details.bgClass} ${details.borderClass} border-opacity-100 ring-1 ${
-                            cat === 'FOOD'
-                              ? 'ring-brand-cyan'
-                              : cat === 'TRAVEL'
-                              ? 'ring-brand-rose'
-                              : 'ring-brand-violet'
-                          }`
-                        : 'bg-white/5 border-transparent opacity-60 hover:opacity-100'
-                    }`}
+                    className="p-3 rounded-xl border flex flex-col items-center justify-center gap-2.5 transition-all duration-300 relative text-center min-h-[96px]"
+                    style={{
+                      backgroundColor: isSelected ? `${cat.color}22` : 'rgba(255,255,255,0.05)',
+                      borderColor: isSelected ? cat.color : 'rgba(255,255,255,0.05)',
+                      opacity: isSelected ? 1 : 0.7
+                    }}
                   >
-                    <span className="text-lg">{details.emoji}</span>
-                    <span className="text-[10px] font-bold text-white">{details.label}</span>
+                    {IconComponent ? (
+                      <motion.div 
+                        whileHover={{ scale: 1.15, rotate: 5 }}
+                        whileTap={{ scale: 0.95 }}
+                        transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                        className="w-8 h-8 rounded-full flex items-center justify-center border"
+                        style={{ 
+                          backgroundColor: isSelected ? `${cat.color}22` : 'rgba(255,255,255,0.05)',
+                          borderColor: isSelected ? cat.color : 'rgba(255,255,255,0.1)',
+                          color: cat.color 
+                        }}
+                      >
+                        <IconComponent className="w-4 h-4" />
+                      </motion.div>
+                    ) : (
+                      <div 
+                        className="w-7 h-7 rounded-full flex items-center justify-center border-2"
+                        style={{ 
+                          backgroundColor: `${cat.color}22`,
+                          borderColor: cat.color
+                        }}
+                      >
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
+                      </div>
+                    )}
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] font-bold text-white truncate max-w-full">{cat.name}</span>
+                      <span className="text-[8px] font-bold text-slate-400 mt-0.5">
+                        {monthlyIncome > 0 
+                          ? `Limit: ${formatCurrency((monthlyIncome * parseFloat(cat.percentage)) / 100)}` 
+                          : `${cat.percentage}% allocation`
+                        }
+                      </span>
+                    </div>
                     {isSelected && (
-                      <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-slate-900 flex items-center justify-center border border-white/10">
-                        <Check className="w-2.5 h-2.5 text-brand-emerald" />
+                      <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-[#151C2C] flex items-center justify-center border border-white/10">
+                        <Check className="w-2.5 h-2.5 text-brand-cyan" />
                       </span>
                     )}
                   </button>

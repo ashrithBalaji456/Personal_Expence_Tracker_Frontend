@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Link } from 'react-router-dom';
-import { LayoutDashboard, CreditCard, PieChart, History, User, LogOut, Plus, Wallet } from 'lucide-react';
+import { LayoutDashboard, CreditCard, PieChart, History, User, LogOut, Plus, Wallet, Sparkles } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
 export const Sidebar = () => {
@@ -9,8 +9,10 @@ export const Sidebar = () => {
   const links = [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/expenses', label: 'Expenses', icon: CreditCard },
+    { to: '/budget', label: 'Budget Plan', icon: Wallet },
     { to: '/analytics', label: 'Analytics', icon: PieChart },
     { to: '/history', label: 'History', icon: History },
+    { to: '/ai-advisor', label: 'AI Advisor', icon: Sparkles },
     { to: '/profile', label: 'Profile', icon: User },
   ];
 

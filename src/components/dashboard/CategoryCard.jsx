@@ -1,23 +1,32 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CATEGORY_DETAILS } from '../../utils/constants';
 import { formatCurrency } from '../../utils/currency';
 import * as LucideIcons from 'lucide-react';
+import trackerApi from '../../api/trackerApi';
 
 export const CategoryCard = ({ category, amount, percentage, onClick }) => {
-  const details = CATEGORY_DETAILS[category];
-  if (!details) return null;
+  const [catConfig, setCatConfig] = useState(null);
 
-  // Resolve Lucide React icon dynamically
-  const Icon = LucideIcons[details.icon] || LucideIcons.HelpCircle;
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const cats = await trackerApi.getBudgetCategories();
+        const found = cats.find(c => c.name === category || c.name.toUpperCase() === category.toUpperCase());
+        if (found) {
+          setCatConfig(found);
+        }
+      } catch (err) {
+        // ignore
+      }
+    };
+    fetchConfig();
+  }, [category]);
 
-  // Dynamically resolve Tailwind background color class from text color class
-  const getProgressBgClass = (textClass) => {
-    if (textClass.includes('text-brand-violet')) return 'bg-brand-violet';
-    if (textClass.includes('text-brand-cyan')) return 'bg-brand-cyan';
-    if (textClass.includes('text-brand-rose')) return 'bg-brand-rose';
-    return 'bg-slate-500';
-  };
+  const label = catConfig ? catConfig.name : (CATEGORY_DETAILS[category]?.label || category);
+  const color = catConfig ? catConfig.color : (CATEGORY_DETAILS[category]?.color || '#64748B');
+  const iconName = catConfig ? catConfig.icon : (CATEGORY_DETAILS[category]?.icon || 'Wallet');
+  const Icon = LucideIcons[iconName] || LucideIcons.Wallet;
 
   return (
     <motion.div
@@ -27,10 +36,13 @@ export const CategoryCard = ({ category, amount, percentage, onClick }) => {
     >
       <div className="flex justify-between items-center mb-3">
         <div className="flex items-center gap-2">
-          <div className={`w-8 h-8 rounded-lg ${details.bgClass} ${details.borderClass} border flex items-center justify-center`}>
-            <Icon className={`w-4 h-4 ${details.textClass}`} />
+          <div 
+            className="w-8 h-8 rounded-lg border flex items-center justify-center"
+            style={{ backgroundColor: `${color}22`, borderColor: `${color}33` }}
+          >
+            <Icon className="w-4 h-4" style={{ color: color }} />
           </div>
-          <span className="text-xs font-bold text-white">{details.label}</span>
+          <span className="text-xs font-bold text-white">{label}</span>
         </div>
         <span className="text-[10px] font-bold text-slate-400">{percentage.toFixed(1)}%</span>
       </div>
@@ -44,7 +56,8 @@ export const CategoryCard = ({ category, amount, percentage, onClick }) => {
             initial={{ width: 0 }}
             animate={{ width: `${percentage}%` }}
             transition={{ duration: 0.8, ease: 'easeOut' }}
-            className={`h-full ${getProgressBgClass(details.textClass)}`}
+            className="h-full"
+            style={{ backgroundColor: color }}
           />
         </div>
       </div>

@@ -12,6 +12,8 @@ import EditExpense from '../pages/EditExpense';
 import Analytics from '../pages/Analytics';
 import History from '../pages/History';
 import Profile from '../pages/Profile';
+import { Budget } from '../pages/Budget';
+import { AiAdvisor } from '../pages/AiAdvisor';
 
 export const AppRoutes = () => {
   return (
@@ -31,7 +33,9 @@ export const AppRoutes = () => {
           <Route path="/expenses/:id/edit" element={<EditExpense />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/history" element={<History />} />
+          <Route path="/budget" element={<Budget />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/ai-advisor" element={<AiAdvisor />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Route>

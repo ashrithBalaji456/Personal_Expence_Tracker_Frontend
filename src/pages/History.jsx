@@ -15,15 +15,34 @@ import DatePicker from '../components/ui/DatePicker';
 export const History = () => {
   const navigate = useNavigate();
 
+  const [categoriesList, setCategoriesList] = useState([]);
+  const [filteredExpenses, setFilteredExpenses] = useState([]);
+  const [specificMonth, setSpecificMonth] = useState('');
+
+  useEffect(() => {
+    const fetchCats = async () => {
+      try {
+        const cats = await trackerApi.getBudgetCategories();
+        setCategoriesList(cats);
+      } catch (err) {
+        // ignore
+      }
+    };
+    fetchCats();
+  }, []);
+
   const categoryOptions = [
     { value: 'ALL', label: 'All Categories' },
-    ...CATEGORIES.map((cat) => ({ value: cat, label: CATEGORY_DETAILS[cat]?.label || cat }))
+    ...categoriesList.map((cat) => ({ value: cat.name, label: cat.name }))
   ];
 
   const dateOptions = [
     { value: 'ALL', label: 'All Dates' },
     { value: 'TODAY', label: 'Today' },
     { value: 'YESTERDAY', label: 'Yesterday' },
+    { value: 'LAST_WEEK', label: 'Last Week (7 Days)' },
+    { value: 'LAST_MONTH', label: 'Last Month (30 Days)' },
+    { value: 'SPECIFIC_MONTH', label: 'Specific Month' },
     { value: 'SPECIFIC', label: 'Specific Date' },
     { value: 'CUSTOM', label: 'Custom Range' }
   ];
@@ -69,6 +88,7 @@ export const History = () => {
         // Use server-side paginated endpoint when no filter is active
         const res = await trackerApi.getExpensesHistory(currentPage, pageSize);
         setHistoryData(res);
+        setFilteredExpenses([]);
       } else {
         // Fetch filtered datasets from backend REST endpoints
         let data = [];
@@ -109,6 +129,18 @@ export const History = () => {
               if (expDate !== specificDate) return false;
             } else if (dateFilter === 'CUSTOM' && customStartDate && customEndDate) {
               if (expDate < customStartDate || expDate > customEndDate) return false;
+            } else if (dateFilter === 'LAST_WEEK') {
+              const limit = new Date();
+              limit.setDate(limit.getDate() - 7);
+              const limitStr = formatInputDate(limit);
+              if (expDate < limitStr) return false;
+            } else if (dateFilter === 'LAST_MONTH') {
+              const limit = new Date();
+              limit.setDate(limit.getDate() - 30);
+              const limitStr = formatInputDate(limit);
+              if (expDate < limitStr) return false;
+            } else if (dateFilter === 'SPECIFIC_MONTH' && specificMonth) {
+              if (!expDate.startsWith(specificMonth)) return false;
             }
           }
 
@@ -137,6 +169,9 @@ export const History = () => {
           return 0;
         });
 
+        // Save the full un-paginated filtered list for export
+        setFilteredExpenses(filtered);
+
         // Paginate locally over the filtered dataset
         const totalElements = filtered.length;
         const totalPages = Math.ceil(totalElements / pageSize);
@@ -155,7 +190,7 @@ export const History = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, categoryFilter, dateFilter, specificDate, customStartDate, customEndDate, searchQuery, sortBy]);
+  }, [currentPage, pageSize, categoryFilter, dateFilter, specificDate, specificMonth, customStartDate, customEndDate, searchQuery, sortBy]);
 
   useEffect(() => {
     loadHistory();
@@ -178,6 +213,7 @@ export const History = () => {
     setCategoryFilter('ALL');
     setDateFilter('ALL');
     setSpecificDate('');
+    setSpecificMonth('');
     setCustomStartDate('');
     setCustomEndDate('');
     setSearchQuery('');
@@ -185,8 +221,41 @@ export const History = () => {
     setCurrentPage(0);
   };
 
-  const handleExportCSV = () => {
-    if (!content || content.length === 0) {
+  const getExportData = async () => {
+    const isFiltered = categoryFilter !== 'ALL' || 
+                       dateFilter !== 'ALL' || 
+                       searchQuery.trim() !== '';
+    if (isFiltered) {
+      return filteredExpenses;
+    } else {
+      try {
+        const data = await trackerApi.getAllExpenses();
+        data.sort((a, b) => {
+          if (sortBy === 'NEWEST') {
+            const dateDiff = new Date(b.expenseDate) - new Date(a.expenseDate);
+            if (dateDiff !== 0) return dateDiff;
+            return new Date(b.createdAt) - new Date(a.createdAt);
+          }
+          if (sortBy === 'OLDEST') {
+            const dateDiff = new Date(a.expenseDate) - new Date(b.expenseDate);
+            if (dateDiff !== 0) return dateDiff;
+            return new Date(a.createdAt) - new Date(b.createdAt);
+          }
+          if (sortBy === 'HIGHEST') return b.amount - a.amount;
+          if (sortBy === 'LOWEST') return a.amount - b.amount;
+          return 0;
+        });
+        return data;
+      } catch (err) {
+        toast.error('Failed to retrieve export records.');
+        return [];
+      }
+    }
+  };
+
+  const handleExportCSV = async () => {
+    const exportData = await getExportData();
+    if (!exportData || exportData.length === 0) {
       toast.error('No transaction records available to export.');
       return;
     }
@@ -195,14 +264,14 @@ export const History = () => {
     const headers = ['ID', 'Date', 'Title', 'Category', 'Amount', 'Notes', 'Created At'];
     
     // Map transactions to CSV rows
-    const rows = content.map(exp => {
+    const rows = exportData.map(exp => {
       const parts = exp.expenseDate.split('-');
       let formattedDate = exp.expenseDate;
       if (parts.length === 3) {
         const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
         formattedDate = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
       }
-      const categoryLabel = CATEGORY_DETAILS[exp.category]?.label || exp.category;
+      const categoryLabel = getCategoryDetails(exp.category).label;
 
       return [
         exp.id,
@@ -231,8 +300,9 @@ export const History = () => {
     toast.success('CSV report exported successfully!');
   };
 
-  const handleExportPDF = () => {
-    if (!content || content.length === 0) {
+  const handleExportPDF = async () => {
+    const exportData = await getExportData();
+    if (!exportData || exportData.length === 0) {
       toast.error('No transaction records available to export.');
       return;
     }
@@ -249,27 +319,28 @@ export const History = () => {
       year: 'numeric'
     });
 
-    const rowsHtml = content.map((exp, idx) => {
+    const rowsHtml = exportData.map((exp, idx) => {
       const parts = exp.expenseDate.split('-');
       let formattedDate = exp.expenseDate;
       if (parts.length === 3) {
         const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
         formattedDate = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
       }
-      const categoryLabel = CATEGORY_DETAILS[exp.category]?.label || exp.category;
+      const catDetails = getCategoryDetails(exp.category);
+      const categoryLabel = catDetails.label;
 
       return `
         <tr style="border-bottom: 1px solid #1E293B;">
           <td style="padding: 10px; text-align: left; color: #94A3B8;">${idx + 1}</td>
           <td style="padding: 10px; text-align: left; color: #94A3B8;">${formattedDate}</td>
           <td style="padding: 10px; text-align: left; font-weight: bold; color: #FFFFFF;">${exp.title}</td>
-          <td style="padding: 10px; text-align: left;"><span class="category-pill">${categoryLabel}</span></td>
+          <td style="padding: 10px; text-align: left;"><span class="category-pill" style="background-color: ${catDetails.color}22; border-color: ${catDetails.color}33; color: ${catDetails.color}">${categoryLabel}</span></td>
           <td style="padding: 10px; text-align: right; font-weight: bold; color: #38BDF8;">${formatCurrency(exp.amount)}</td>
         </tr>
       `;
     }).join('');
 
-    const totalAmount = content.reduce((sum, exp) => sum + exp.amount, 0);
+    const totalAmount = exportData.reduce((sum, exp) => sum + exp.amount, 0);
 
     printWindow.document.write(`
       <html>
@@ -324,7 +395,7 @@ export const History = () => {
               </div>
               <div class="meta">
                 <div>Date: ${dateStr}</div>
-                <div>Records: ${content.length}</div>
+                <div>Records: ${exportData.length}</div>
               </div>
             </div>
             
@@ -366,8 +437,40 @@ export const History = () => {
     toast.success('PDF report window opened successfully!');
   };
 
-  const getCategoryDetails = (cat) => {
-    return CATEGORY_DETAILS[cat] || { label: cat, textClass: 'text-slate-400', bgClass: 'bg-slate-800/10', borderClass: 'border-slate-800/20' };
+  const getCategoryDetails = (catName) => {
+    const found = categoriesList.find(c => c.name === catName || c.name.toUpperCase() === catName.toUpperCase());
+    if (found) {
+      return {
+        label: found.name,
+        color: found.color,
+        style: {
+          backgroundColor: `${found.color}15`,
+          borderColor: `${found.color}25`,
+          color: found.color
+        }
+      };
+    }
+    const legacy = CATEGORY_DETAILS[catName] || CATEGORY_DETAILS[catName?.toUpperCase()];
+    if (legacy) {
+      return {
+        label: legacy.label,
+        color: legacy.color,
+        style: {
+          backgroundColor: `${legacy.color}15`,
+          borderColor: `${legacy.color}25`,
+          color: legacy.color
+        }
+      };
+    }
+    return {
+      label: catName,
+      color: '#94A3B8',
+      style: {
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderColor: 'rgba(255,255,255,0.1)',
+        color: '#94A3B8'
+      }
+    };
   };
 
   const totalPages = historyData?.totalPages || 0;
@@ -503,6 +606,33 @@ export const History = () => {
           </motion.div>
         )}
 
+        {/* Specific Month Picker input */}
+        {dateFilter === 'SPECIFIC_MONTH' && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="flex items-center gap-3 pt-2 border-t border-white/5 text-xs"
+          >
+            <span className="text-slate-400 font-semibold">Select Month:</span>
+            <input
+              type="month"
+              value={specificMonth}
+              onChange={(e) => {
+                setSpecificMonth(e.target.value);
+                setCurrentPage(0);
+              }}
+              className="bg-[#151C2C] border border-white/10 text-white rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-brand-cyan"
+            />
+            <button
+              onClick={handleResetFilters}
+              className="text-[10px] font-bold text-brand-violet hover:underline ml-auto"
+            >
+              Reset Filters
+            </button>
+          </motion.div>
+        )}
+
         {/* Custom Date Range picker inputs */}
         {dateFilter === 'CUSTOM' && (
           <motion.div
@@ -601,7 +731,10 @@ export const History = () => {
                         )}
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${details.bgClass} ${details.borderClass} ${details.textClass}`}>
+                        <span 
+                          className="text-[10px] font-bold px-2.5 py-1 rounded-full border"
+                          style={details.style}
+                        >
                           {details.label}
                         </span>
                       </td>
@@ -649,7 +782,10 @@ export const History = () => {
                       {formatDateFriendly(exp.expenseDate)}
                     </span>
                     <h4 className="text-xs font-bold text-white leading-tight">{exp.title}</h4>
-                    <span className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full border ${details.bgClass} ${details.borderClass} ${details.textClass}`}>
+                    <span 
+                      className="inline-block text-[9px] font-bold px-2 py-0.5 rounded-full border"
+                      style={details.style}
+                    >
                       {details.label}
                     </span>
                   </div>

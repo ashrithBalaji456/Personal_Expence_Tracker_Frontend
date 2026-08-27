@@ -90,5 +90,57 @@ export const trackerApi = {
     const response = await api.get(`/analytics/compare?firstStart=${firstStart}&firstEnd=${firstEnd}&secondStart=${secondStart}&secondEnd=${secondEnd}`);
     return response.data;
   },
+
+  // Budget Operations
+  getBudgetCategories: async () => {
+    const response = await api.get('/budget/categories');
+    return response.data;
+  },
+
+  addBudgetCategory: async (categoryData) => {
+    const response = await api.post('/budget/categories', categoryData);
+    return response.data;
+  },
+
+  updateBudgetCategory: async (id, categoryData) => {
+    const response = await api.put(`/budget/categories/${id}`, categoryData);
+    return response.data;
+  },
+
+  deleteBudgetCategory: async (id) => {
+    const response = await api.delete(`/budget/categories/${id}`);
+    return response.data;
+  },
+
+  resetBudgetCategories: async () => {
+    const response = await api.post('/budget/categories/reset');
+    return response.data;
+  },
+
+  getMonthlyIncome: async (month) => {
+    const response = await api.get(`/budget/income?month=${month}`);
+    return response.data;
+  },
+
+  setMonthlyIncome: async (incomeData) => {
+    const response = await api.post('/budget/income', incomeData);
+    return response.data;
+  },
+
+  getBudgetSummary: async (month) => {
+    const response = await api.get(`/budget/summary?month=${month}`);
+    return response.data;
+  },
+
+  // Gemini AI APIs
+  sendAiChatMessage: async (message) => {
+    const response = await api.post('/ai/chat', { message });
+    return response.data;
+  },
+
+  getAiPredictiveAlerts: async () => {
+    const response = await api.get('/ai/alerts');
+    return response.data;
+  },
 };
 export default trackerApi;

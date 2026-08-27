@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Sparkles, Calendar, TrendingUp, Compass, ArrowUpRight, BarChart2, Plus } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles, Calendar, TrendingUp, Compass, ArrowUpRight, BarChart2, Plus, PiggyBank } from 'lucide-react';
 import trackerApi from '../api/trackerApi';
 import MetricCard from '../components/dashboard/MetricCard';
 import SpendingChart from '../components/dashboard/SpendingChart';
@@ -9,11 +9,24 @@ import CategoryChart from '../components/dashboard/CategoryChart';
 import CategoryCard from '../components/dashboard/CategoryCard';
 import RecentExpenses from '../components/dashboard/RecentExpenses';
 import toast from '../components/ui/Toast';
+import { formatCurrency } from '../utils/currency';
 
 export const Dashboard = () => {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Specified month search filter & metrics states
+  const [dashboardMonth, setDashboardMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [monthIncomeAmt, setMonthIncomeAmt] = useState(0);
+  const [monthSpentAmt, setMonthSpentAmt] = useState(0);
+
+  // AI Predictive alerts states
+  const [aiAlerts, setAiAlerts] = useState([]);
+  const [alertsLoading, setAlertsLoading] = useState(false);
 
   // Chart filtering states
   const [period, setPeriod] = useState('WEEKLY'); // 'WEEKLY' | 'MONTHLY'
@@ -35,6 +48,47 @@ export const Dashboard = () => {
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  useEffect(() => {
+    const fetchMonthlyStats = async () => {
+      try {
+        // 1. Fetch Income
+        const incRes = await trackerApi.getMonthlyIncome(dashboardMonth);
+        setMonthIncomeAmt(incRes.amount || 0);
+
+        // 2. Fetch expenses in range to calculate total spent
+        const parts = dashboardMonth.split('-');
+        const year = parseInt(parts[0]);
+        const month = parseInt(parts[1]);
+        const lastDay = new Date(year, month, 0).getDate();
+        const start = `${dashboardMonth}-01`;
+        const end = `${dashboardMonth}-${String(lastDay).padStart(2, '0')}`;
+        
+        const monthExpenses = await trackerApi.getExpensesInRange(start, end);
+        const totalSpent = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
+        setMonthSpentAmt(totalSpent);
+      } catch (err) {
+        setMonthIncomeAmt(0);
+        setMonthSpentAmt(0);
+      }
+    };
+    fetchMonthlyStats();
+  }, [dashboardMonth]);
+
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      try {
+        setAlertsLoading(true);
+        const res = await trackerApi.getAiPredictiveAlerts();
+        setAiAlerts(res || []);
+      } catch (err) {
+        setAiAlerts([]);
+      } finally {
+        setAlertsLoading(false);
+      }
+    };
+    fetchAlerts();
+  }, [dashboardMonth]);
 
   useEffect(() => {
     const fetchChartData = async () => {
@@ -200,7 +254,19 @@ export const Dashboard = () => {
     return 'Good evening';
   };
 
+  const renderFormattedAlert = (text) => {
+    if (typeof text !== 'string') return text;
+    const parts = text.split('**');
+    return parts.map((part, idx) => {
+      if (idx % 2 === 1) {
+        return <strong key={idx} className="font-extrabold text-white">{part}</strong>;
+      }
+      return part;
+    });
+  };
+
   const username = localStorage.getItem('username') || 'Friend';
+  const monthSavedAmt = monthIncomeAmt - monthSpentAmt;
 
   return (
     <motion.div
@@ -216,7 +282,15 @@ export const Dashboard = () => {
           <h2 className="text-xl sm:text-2xl font-black text-white leading-tight">
             {getGreeting()}, {username} 👋
           </h2>
-          <p className="text-xs text-slate-400 mt-1">Here's your personal spending overview.</p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-xs text-slate-400">Personal spending overview for</p>
+            <input 
+              type="month"
+              value={dashboardMonth}
+              onChange={(e) => setDashboardMonth(e.target.value)}
+              className="bg-[#151C2C]/80 border border-white/10 text-white rounded-xl px-3 py-1 text-xs focus:outline-none focus:border-brand-cyan h-7 font-bold cursor-pointer"
+            />
+          </div>
         </div>
         <Link
           to="/expenses/add"
@@ -227,43 +301,160 @@ export const Dashboard = () => {
         </Link>
       </div>
 
+      {/* Monthly Savings Hub Banner */}
+      <div className="glass-card rounded-3xl p-5 border border-white/5 bg-gradient-to-r from-[#0F172A]/80 to-[#1E293B]/80 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-full bg-brand-cyan/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-brand-cyan/10 border border-brand-cyan/20 flex items-center justify-center text-2xl select-none">
+            💰
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-white">Monthly Savings Tracker</h3>
+            <p className="text-[10px] text-slate-400 mt-0.5">
+              Summary for {new Date(dashboardMonth + '-15').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-6 w-full md:w-auto text-center md:text-left">
+          <div>
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Income (Salary)</span>
+            <span className="text-sm sm:text-base font-black text-white mt-1 block">
+              {formatCurrency(monthIncomeAmt)}
+            </span>
+          </div>
+          <div>
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Total Spent</span>
+            <span className="text-sm sm:text-base font-black text-brand-rose mt-1 block">
+              {formatCurrency(monthSpentAmt)}
+            </span>
+          </div>
+          <div>
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Saved / Remaining</span>
+            <span className={`text-sm sm:text-base font-black mt-1 block ${monthSavedAmt >= 0 ? 'text-brand-emerald' : 'text-brand-rose'}`}>
+              {formatCurrency(monthSavedAmt)}
+            </span>
+          </div>
+        </div>
+
+        <div className="w-full md:w-auto shrink-0 flex flex-col items-center md:items-end gap-2 text-center md:text-right">
+          <span className={`text-[10px] font-bold px-3 py-1.5 rounded-xl border ${
+            monthSavedAmt >= 0 
+              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300' 
+              : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
+          }`}>
+            {monthSavedAmt >= 0 
+              ? `Saved ${(monthIncomeAmt > 0 ? ((monthSavedAmt / monthIncomeAmt) * 100) : 0).toFixed(0)}% of income`
+              : `Overspent by ${formatCurrency(Math.abs(monthSavedAmt))}`
+            }
+          </span>
+        </div>
+      </div>
+
+      {/* Animated AI Budget Advisor Banner */}
+      <AnimatePresence mode="wait">
+        {(alertsLoading || aiAlerts.length > 0) && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, y: -10 }}
+            animate={{ opacity: 1, height: 'auto', y: 0 }}
+            exit={{ opacity: 0, height: 0, y: -10 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 25 }}
+            className="overflow-hidden"
+          >
+            <div className="bg-gradient-to-r from-brand-violet/10 via-[#1E293B]/70 to-[#0F172A]/70 border border-brand-violet/20 rounded-3xl p-5 flex flex-col sm:flex-row items-center gap-4 relative shadow-lg">
+              <div className="absolute inset-0 bg-brand-violet/5 blur-xl rounded-full pointer-events-none" />
+              
+              <div className="w-11 h-11 rounded-2xl bg-brand-violet/20 border border-brand-violet/30 flex items-center justify-center text-lg select-none shrink-0 shadow-inner">
+                {alertsLoading ? '⏳' : '💡'}
+              </div>
+
+              <div className="flex-1 w-full text-center sm:text-left">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-brand-violet mb-1 flex items-center justify-center sm:justify-start gap-1">
+                  Gemini Predictive Budget Advisor
+                </h4>
+                
+                {alertsLoading ? (
+                  <p className="text-xs text-slate-400 animate-pulse font-medium">
+                    Analyzing spending habits, recent transactions, and category allocations...
+                  </p>
+                ) : aiAlerts.length > 0 && aiAlerts[0].includes("Gemini API Key is not configured") ? (
+                  <p className="text-xs text-slate-300 font-medium">
+                    AI analysis is disabled.{' '}
+                    <Link to="/ai-advisor" className="text-brand-cyan hover:underline font-extrabold inline-flex items-center gap-0.5">
+                      Setup your Gemini API Key in the AI Advisor workspace to enable alerts.
+                    </Link>
+                  </p>
+                ) : (
+                  <div className="space-y-2 mt-1">
+                    {aiAlerts.map((alert, idx) => (
+                      <motion.div
+                        key={idx}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: idx * 0.1 }}
+                        className="flex items-start gap-2 text-xs sm:text-sm font-semibold text-slate-200"
+                      >
+                        <span className="w-1.5 h-1.5 bg-brand-cyan rounded-full mt-1.5 shrink-0 animate-ping" />
+                        <span className="leading-relaxed">{renderFormattedAlert(alert)}</span>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Metric Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {loading ? (
-          Array.from({ length: 5 }).map((_, i) => (
+          Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="h-28 bg-slate-800/20 border border-white/5 rounded-2xl animate-pulse" />
           ))
         ) : (
           <>
             <MetricCard
+              label="Total Savings"
+              value={data?.lifetimeSavings || 0}
+              comparisonText="Cumulative overall savings"
+              icon={PiggyBank}
+              color="emerald"
+            />
+            <MetricCard
               label="Total Spent"
               value={data?.totalSpent || 0}
               comparisonText="Overall tracked spending"
               icon={TrendingUp}
+              color="rose"
             />
             <MetricCard
               label="Today"
               value={data?.todaySpent || 0}
               comparisonText="Today's outgoing funds"
               icon={Calendar}
+              color="amber"
             />
             <MetricCard
               label="Last 3 Days"
               value={data?.last3DaysSpent || 0}
               comparisonText="Outgoing in last 72 hours"
               icon={BarChart2}
+              color="indigo"
             />
             <MetricCard
               label="This Week"
               value={data?.currentWeekSpent || 0}
               comparisonText="Weekly accumulated total"
               icon={Compass}
+              color="cyan"
             />
             <MetricCard
               label="This Month"
               value={data?.currentMonthSpent || 0}
               comparisonText="Monthly billing projection"
               icon={Sparkles}
+              color="violet"
             />
           </>
         )}

@@ -55,6 +55,7 @@ export const Budget = () => {
   const [editCatPercentage, setEditCatPercentage] = useState('');
   const [editCatColor, setEditCatColor] = useState('');
   const [editCatIcon, setEditCatIcon] = useState('');
+  const [confirmModal, setConfirmModal] = useState(null);
 
   const fetchBudgetData = async () => {
     setLoading(true);
@@ -166,30 +167,36 @@ export const Budget = () => {
     }
   };
 
-  const handleDeleteCategory = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this category? All expenses linked to this category string will lose their budget parameters.')) {
-      return;
-    }
-    try {
-      await trackerApi.deleteBudgetCategory(id);
-      toast.success('Category deleted successfully.');
-      fetchBudgetData();
-    } catch (err) {
-      toast.error('Failed to delete category.');
-    }
+  const handleDeleteCategory = (id) => {
+    setConfirmModal({
+      title: 'Delete Category?',
+      message: 'Are you sure you want to delete this category? All expenses linked to this category will lose their budget parameters.',
+      onConfirm: async () => {
+        try {
+          await trackerApi.deleteBudgetCategory(id);
+          toast.success('Category deleted successfully.');
+          fetchBudgetData();
+        } catch (err) {
+          toast.error('Failed to delete category.');
+        }
+      }
+    });
   };
 
-  const handleResetToDefaults = async () => {
-    if (!window.confirm('This will delete all custom categories and restore the default 10 seeded category plan. Continue?')) {
-      return;
-    }
-    try {
-      await trackerApi.resetBudgetCategories();
-      toast.success('Reset categories to standard defaults.');
-      fetchBudgetData();
-    } catch (err) {
-      toast.error('Failed to reset categories.');
-    }
+  const handleResetToDefaults = () => {
+    setConfirmModal({
+      title: 'Restore Default Categories?',
+      message: 'This will delete all custom categories and restore the default 10 seeded category plan. Continue?',
+      onConfirm: async () => {
+        try {
+          await trackerApi.resetBudgetCategories();
+          toast.success('Reset categories to standard defaults.');
+          fetchBudgetData();
+        } catch (err) {
+          toast.error('Failed to reset categories.');
+        }
+      }
+    });
   };
 
   if (loading) {
@@ -820,6 +827,55 @@ export const Budget = () => {
             })}
           </div>
         </div>
+
+        {/* Custom Confirmation Modal */}
+        <AnimatePresence>
+          {confirmModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-[#151C2C] border border-white/10 rounded-3xl p-6 max-w-md w-full shadow-2xl relative overflow-hidden"
+              >
+                {/* Glow decoration */}
+                <div className="absolute -top-10 -right-10 w-32 h-32 bg-rose-500/20 rounded-full blur-2xl pointer-events-none" />
+                
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="p-3 rounded-2xl bg-rose-500/10 text-rose-500 shrink-0">
+                    <AlertCircle className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-black text-slate-100 mb-1">
+                      {confirmModal.title}
+                    </h4>
+                    <p className="text-sm text-slate-400 leading-relaxed">
+                      {confirmModal.message}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 mt-6">
+                  <button
+                    onClick={() => setConfirmModal(null)}
+                    className="px-5 py-2.5 rounded-xl text-sm font-bold bg-white/5 hover:bg-white/10 text-slate-300 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      confirmModal.onConfirm();
+                      setConfirmModal(null);
+                    }}
+                    className="px-5 py-2.5 rounded-xl text-sm font-bold bg-rose-500 hover:bg-rose-600 text-white transition-all shadow-lg shadow-rose-500/20"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
       </div>
     </div>

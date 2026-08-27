@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Filter, ArrowUpDown, Edit3, Trash2, CalendarDays, ChevronDown } from 'lucide-react';
+import { Plus, Search, Filter, ArrowUpDown, Edit3, Trash2, CalendarDays, ChevronDown, AlertCircle } from 'lucide-react';
 import trackerApi from '../api/trackerApi';
 import { CATEGORIES, CATEGORY_DETAILS } from '../utils/constants';
 import { formatCurrency } from '../utils/currency';
@@ -46,6 +46,7 @@ export const Expenses = () => {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [sortBy, setSortBy] = useState('NEWEST'); // 'NEWEST' | 'OLDEST' | 'HIGHEST' | 'LOWEST'
+  const [confirmModal, setConfirmModal] = useState(null);
 
   const loadExpenses = useCallback(async () => {
     try {
@@ -86,17 +87,21 @@ export const Expenses = () => {
     loadExpenses();
   }, [loadExpenses]);
 
-  const handleDeleteExpense = async (id, e) => {
+  const handleDeleteExpense = (id, e) => {
     e.stopPropagation();
-    if (window.confirm('Are you sure you want to delete this expense record?')) {
-      try {
-        await trackerApi.deleteExpense(id);
-        toast.success('Expense deleted successfully.');
-        loadExpenses();
-      } catch (err) {
-        toast.error('Failed to delete expense.');
+    setConfirmModal({
+      title: 'Delete Transaction?',
+      message: 'Are you sure you want to delete this expense record? This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          await trackerApi.deleteExpense(id);
+          toast.success('Expense deleted successfully.');
+          loadExpenses();
+        } catch (err) {
+          toast.error('Failed to delete expense.');
+        }
       }
-    }
+    });
   };
 
   // Client-side text search & sorting
@@ -382,6 +387,55 @@ export const Expenses = () => {
           </div>
         </div>
       )}
+        {/* Custom Confirmation Modal */}
+        <AnimatePresence>
+          {confirmModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="bg-[#151C2C] border border-white/10 rounded-3xl p-6 max-w-md w-full shadow-2xl relative overflow-hidden"
+              >
+                {/* Glow decoration */}
+                <div className="absolute -top-10 -right-10 w-32 h-32 bg-rose-500/20 rounded-full blur-2xl pointer-events-none" />
+                
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="p-3 rounded-2xl bg-rose-500/10 text-rose-500 shrink-0">
+                    <AlertCircle className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-black text-slate-100 mb-1">
+                      {confirmModal.title}
+                    </h4>
+                    <p className="text-sm text-slate-400 leading-relaxed">
+                      {confirmModal.message}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 mt-6">
+                  <button
+                    onClick={() => setConfirmModal(null)}
+                    className="px-5 py-2.5 rounded-xl text-sm font-bold bg-white/5 hover:bg-white/10 text-slate-300 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      confirmModal.onConfirm();
+                      setConfirmModal(null);
+                    }}
+                    className="px-5 py-2.5 rounded-xl text-sm font-bold bg-rose-500 hover:bg-rose-600 text-white transition-all shadow-lg shadow-rose-500/20"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
     </motion.div>
   );
 };
